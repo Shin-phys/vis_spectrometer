@@ -444,7 +444,12 @@ function setupCanvasEvents(canvas, targetId) {
         }
 
         const m = getMousePos({ clientX, clientY });
-        let modePolys = state.polys[state.mode];
+
+        let modeKey = state.mode;
+        if (state.mode === 'same-image') modeKey = 'same';
+        if (state.mode === 'diff-image') modeKey = 'diff';
+
+        let modePolys = state.polys[modeKey];
         if (!modePolys) return;
         let poly = modePolys[state.dragState.polyKey];
         if (!poly) return;
