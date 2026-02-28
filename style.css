@@ -58,6 +58,7 @@ h1 {
     font-weight: 600;
     background: linear-gradient(90deg, #3b82f6, #8b5cf6);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -77,9 +78,18 @@ main {
             "controls preview"
             "controls result";
     }
-    .controls-panel { grid-area: controls; }
-    .preview-panel { grid-area: preview; }
-    .result-panel { grid-area: result; }
+
+    .controls-panel {
+        grid-area: controls;
+    }
+
+    .preview-panel {
+        grid-area: preview;
+    }
+
+    .result-panel {
+        grid-area: result;
+    }
 }
 
 .card {
@@ -98,7 +108,9 @@ main {
     font-weight: 500;
 }
 
-select, input[type="number"], input[type="text"] {
+select,
+input[type="number"],
+input[type="text"] {
     width: 100%;
     padding: 0.5rem;
     border: 1px solid var(--border-color);
@@ -121,7 +133,8 @@ select, input[type="number"], input[type="text"] {
     font-size: 0.9rem;
 }
 
-.drop-zone:hover, .drop-zone.dragover {
+.drop-zone:hover,
+.drop-zone.dragover {
     background-color: rgba(59, 130, 246, 0.1);
 }
 
@@ -129,7 +142,8 @@ select, input[type="number"], input[type="text"] {
     display: none !important;
 }
 
-.btn, button {
+.btn,
+button {
     padding: 0.6rem 1rem;
     border: none;
     border-radius: 6px;
@@ -213,9 +227,20 @@ select, input[type="number"], input[type="text"] {
 }
 
 @keyframes pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-    70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+    }
+
+    70% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    }
 }
 
 .canvas-container {
@@ -223,7 +248,8 @@ select, input[type="number"], input[type="text"] {
     overflow-x: auto;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background-color: #000; /* Dark background always for preview */
+    background-color: #000;
+    /* Dark background always for preview */
     position: relative;
     cursor: crosshair;
     margin-bottom: 1rem;
@@ -237,6 +263,8 @@ canvas {
     height: auto;
     display: block;
     object-fit: contain;
+    touch-action: none;
+    /* スマホ操作時のスクロールを防ぐ */
 }
 
 .hint {
@@ -257,6 +285,7 @@ canvas {
     display: flex;
     justify-content: flex-end;
 }
+
 #export-csv-btn {
     width: auto;
     min-width: 200px;
@@ -283,7 +312,10 @@ canvas {
 
 .overlay {
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.7);
     display: flex;
     flex-direction: column;
@@ -311,6 +343,40 @@ canvas {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* スマホ等へのレスポンシブ対応追加 */
+@media (max-width: 768px) {
+    header {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 1.25rem;
+    }
+
+    .calib-point label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    .calib-point input {
+        width: 100%;
+    }
+
+    .chart-container {
+        height: 300px;
+    }
+
+    .drop-zone {
+        padding: 1rem;
+    }
 }

@@ -9,15 +9,15 @@ const state = {
     // The polygons for each mode
     polys: {
         single: {
-            sam: [{x:100, y:100}, {x:500, y:100}, {x:500, y:200}, {x:100, y:200}]
+            sam: [{ x: 100, y: 100 }, { x: 500, y: 100 }, { x: 500, y: 200 }, { x: 100, y: 200 }]
         },
         same: {
-            ref: [{x:100, y:50}, {x:500, y:50}, {x:500, y:150}, {x:100, y:150}],
-            sam: [{x:100, y:200}, {x:500, y:200}, {x:500, y:300}, {x:100, y:300}]
+            ref: [{ x: 100, y: 50 }, { x: 500, y: 50 }, { x: 500, y: 150 }, { x: 100, y: 150 }],
+            sam: [{ x: 100, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 300 }, { x: 100, y: 300 }]
         },
         diff: {
-            ref: [{x:100, y:100}, {x:500, y:100}, {x:500, y:200}, {x:100, y:200}],
-            sam: [{x:100, y:100}, {x:500, y:100}, {x:500, y:200}, {x:100, y:200}]
+            ref: [{ x: 100, y: 100 }, { x: 500, y: 100 }, { x: 500, y: 200 }, { x: 100, y: 200 }],
+            sam: [{ x: 100, y: 100 }, { x: 500, y: 100 }, { x: 500, y: 200 }, { x: 100, y: 200 }]
         }
     },
     dragState: {
@@ -73,7 +73,7 @@ function initTheme() {
             spectrumChart.update();
         }
     };
-    
+
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         document.documentElement.setAttribute('data-theme', 'dark');
         themeBtn.textContent = '☀️';
@@ -128,7 +128,7 @@ function updateVisibility() {
     const dropSec = document.getElementById('drop-zone-secondary');
     const canvasSec = document.getElementById('canvas-wrapper-secondary');
     const promptPrim = document.getElementById('primary-prompt');
-    
+
     if (state.mode === 'single') {
         dropSec.classList.add('hidden');
         canvasSec.classList.add('hidden');
@@ -181,7 +181,7 @@ function handleFile(file, targetId) {
         const img = state.images[targetId];
         img.element.onload = () => {
             img.loaded = true;
-            
+
             // Adjust polygon sizes based on image size roughly
             const w = img.element.width;
             const h = img.element.height;
@@ -189,20 +189,20 @@ function handleFile(file, targetId) {
             const cy = h / 2;
             const spanX = Math.min(400, w * 0.4);
             const spanY = Math.min(100, h * 0.1);
-            
+
             // Re-center poly if first time loaded
             if (targetId === 'primary') {
-                if(state.mode === 'single') {
+                if (state.mode === 'single') {
                     setPoly('single', 'sam', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
                 } else {
-                    setPoly('same', 'ref', cx - spanX, cy - spanY*2 - 20, cx + spanX, cy - 20);
-                    setPoly('same', 'sam', cx - spanX, cy + 20, cx + spanX, cy + spanY*2 + 20);
+                    setPoly('same', 'ref', cx - spanX, cy - spanY * 2 - 20, cx + spanX, cy - 20);
+                    setPoly('same', 'sam', cx - spanX, cy + 20, cx + spanX, cy + spanY * 2 + 20);
                 }
                 setPoly('diff', 'ref', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
             } else if (targetId === 'secondary') {
                 setPoly('diff', 'sam', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
             }
-            
+
             document.getElementById('extract-btn').disabled = false;
             redrawAll();
         };
@@ -213,10 +213,10 @@ function handleFile(file, targetId) {
 
 function setPoly(mode, key, x1, y1, x2, y2) {
     state.polys[mode][key] = [
-        {x: x1, y: y1},
-        {x: x2, y: y1},
-        {x: x2, y: y2},
-        {x: x1, y: y2}
+        { x: x1, y: y1 },
+        { x: x2, y: y1 },
+        { x: x2, y: y2 },
+        { x: x1, y: y2 }
     ];
 }
 
@@ -252,7 +252,7 @@ function setupCanvasEvents(canvas, targetId) {
     };
 
     const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-    
+
     const isInside = (pt, poly) => {
         let inside = false;
         for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -264,16 +264,24 @@ function setupCanvasEvents(canvas, targetId) {
         return inside;
     };
 
-    canvas.addEventListener('pointerdown', (e) => {
+    const handleDown = (e) => {
         if (!state.images[targetId].loaded) return;
-        const m = getMousePos(e);
+
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+
+        const m = getMousePos({ clientX, clientY });
         activePolys = getRoisForCurrentMode(targetId);
-        
+
         for (let ap of activePolys) {
             let poly = ap.points;
             // Check points first
             for (let i = 0; i < poly.length; i++) {
-                if (dist(m, poly[i]) < 10) {
+                if (dist(m, poly[i]) < 15) { // increased hit radius for touch
                     state.dragState = { active: targetId, polyKey: ap.key, pointIndex: i, startX: m.x, startY: m.y };
                     return;
                 }
@@ -284,11 +292,20 @@ function setupCanvasEvents(canvas, targetId) {
                 return;
             }
         }
-    });
+    };
 
-    canvas.addEventListener('pointermove', (e) => {
+    const handleMove = (e) => {
         if (state.dragState.active !== targetId) return;
-        const m = getMousePos(e);
+        e.preventDefault(); // prevent scrolling while dragging
+
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+
+        const m = getMousePos({ clientX, clientY });
         let modePolys = state.polys[state.mode];
         if (!modePolys) return;
         let poly = modePolys[state.dragState.polyKey];
@@ -305,16 +322,24 @@ function setupCanvasEvents(canvas, targetId) {
                 p.x += dx; p.y += dy;
             }
         }
-        
+
         state.dragState.startX = m.x;
         state.dragState.startY = m.y;
         redrawAll();
-    });
+    };
 
     const stopDrag = () => {
         state.dragState.active = false;
     };
+
+    canvas.addEventListener('pointerdown', handleDown);
+    canvas.addEventListener('pointermove', handleMove);
+    canvas.addEventListener('touchstart', handleDown, { passive: false });
+    canvas.addEventListener('touchmove', handleMove, { passive: false });
+
     window.addEventListener('pointerup', stopDrag);
+    window.addEventListener('touchend', stopDrag);
+
 }
 
 function redrawAll() {
@@ -329,17 +354,17 @@ function drawCanvas(targetId) { // 'primary' or 'secondary'
 
     canvas.width = imgData.element.width;
     canvas.height = imgData.element.height;
-    
+
     const ctx = canvas.getContext('2d');
     ctx.drawImage(imgData.element, 0, 0);
 
     const activePolys = getRoisForCurrentMode(targetId);
-    
+
     for (let ap of activePolys) {
         let poly = ap.points;
         ctx.beginPath();
         ctx.moveTo(poly[0].x, poly[0].y);
-        for(let i=1; i<poly.length; i++) {
+        for (let i = 1; i < poly.length; i++) {
             ctx.lineTo(poly[i].x, poly[i].y);
         }
         ctx.closePath();
@@ -371,7 +396,7 @@ function initChart() {
     const ctx = document.getElementById('spectrum-chart').getContext('2d');
     Chart.defaults.color = document.documentElement.getAttribute('data-theme') === 'dark' ? '#f1f5f9' : '#334155';
     Chart.defaults.font.family = 'Inter';
-    
+
     spectrumChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -402,7 +427,7 @@ function initChart() {
                         const pixel = state.lastChartData.pixelOriginal[index];
                         document.getElementById(`calib-p${state.pickMode}`).value = pixel.toFixed(1);
                         state.calib[`p${state.pickMode}`] = pixel;
-                        
+
                         // Disable pick mode
                         document.querySelector(`.pick-btn[data-target="${state.pickMode}"]`).classList.remove('active');
                         state.pickMode = null;
@@ -415,7 +440,7 @@ function initChart() {
 
 function processImages() {
     if (!state.cvReady) return alert("OpenCVがまだロードされていません。");
-    
+
     if (state.mode === 'single' && state.images.primary.loaded) {
         let profile = extractProfile(state.images.primary.element, state.polys.single.sam);
         updateChart('intensity', { samProfile: profile });
@@ -435,15 +460,15 @@ function processImages() {
 function extractProfile(imgElement, poly) {
     let src = cv.imread(imgElement);
     let TL = poly[0], TR = poly[1], BR = poly[2], BL = poly[3];
-    
+
     let widthA = Math.hypot(BR.x - BL.x, BR.y - BL.y);
     let widthB = Math.hypot(TR.x - TL.x, TR.y - TL.y);
     let maxWidth = Math.floor(Math.max(widthA, widthB));
-    
+
     let heightA = Math.hypot(TR.x - BR.x, TR.y - BR.y);
     let heightB = Math.hypot(TL.x - BL.x, TL.y - BL.y);
     let maxHeight = Math.floor(Math.max(heightA, heightB));
-    
+
     let dstPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
         0, 0,
         maxWidth - 1, 0,
@@ -456,24 +481,24 @@ function extractProfile(imgElement, poly) {
         BR.x, BR.y,
         BL.x, BL.y
     ]);
-    
+
     let M = cv.getPerspectiveTransform(srcPoints, dstPoints);
     let dst = new cv.Mat();
     let dsize = new cv.Size(maxWidth, maxHeight);
     cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-    
+
     let gray = new cv.Mat();
     cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
-    
+
     let profile = new Float32Array(maxWidth);
-    for(let x=0; x<maxWidth; x++) {
+    for (let x = 0; x < maxWidth; x++) {
         let sum = 0;
-        for(let y=0; y<maxHeight; y++) {
+        for (let y = 0; y < maxHeight; y++) {
             sum += gray.ucharPtr(y, x)[0];
         }
         profile[x] = sum / maxHeight;
     }
-    
+
     src.delete(); dstPoints.delete(); srcPoints.delete(); M.delete(); dst.delete(); gray.delete();
     return profile;
 }
@@ -482,23 +507,23 @@ function updateChart(type, data) {
     let maxWidth = 0;
     if (data.samProfile) maxWidth = Math.max(maxWidth, data.samProfile.length);
     if (data.refProfile) maxWidth = Math.max(maxWidth, data.refProfile.length);
-    
+
     let labels = [];
     let pixels = [];
-    for(let i=0; i<maxWidth; i++) {
+    for (let i = 0; i < maxWidth; i++) {
         pixels.push(i);
         labels.push(i.toString());
     }
-    
+
     state.lastChartData = {
         type: type,
         samProfile: Array.from(data.samProfile || []),
         refProfile: Array.from(data.refProfile || []),
         pixelOriginal: pixels
     };
-    
+
     let datasets = [];
-    
+
     if (type === 'intensity') {
         datasets.push({
             label: '強度 (Intensity)',
@@ -515,22 +540,22 @@ function updateChart(type, data) {
         // Ensure strictly matched valid range
         let len = Math.min(state.lastChartData.samProfile.length, state.lastChartData.refProfile.length);
         let absProfile = [];
-        for(let i=0; i<len; i++) {
+        for (let i = 0; i < len; i++) {
             let It = state.lastChartData.samProfile[i];
             let I0 = state.lastChartData.refProfile[i];
             // Fix small/zero division
-            if(I0 <= 0.1) I0 = 0.1;
-            if(It <= 0.1) It = 0.1;
+            if (I0 <= 0.1) I0 = 0.1;
+            if (It <= 0.1) It = 0.1;
             let ratio = It / I0;
             let A = -Math.log10(ratio);
             absProfile.push(A);
         }
-        
+
         // Trim labels to match length
         labels = labels.slice(0, len);
         state.lastChartData.pixelOriginal = pixels.slice(0, len);
         state.lastChartData.absProfile = absProfile;
-        
+
         datasets.push({
             label: '吸光度 (Absorbance)',
             data: absProfile,
@@ -546,14 +571,14 @@ function updateChart(type, data) {
     spectrumChart.data.labels = labels;
     spectrumChart.data.datasets = datasets;
     spectrumChart.options.scales.x.title.text = 'Pixel';
-    
+
     // Apply calib if active
     if (state.calib.active) {
         applyCalibrationToChart();
     } else {
         spectrumChart.update();
     }
-    
+
     document.getElementById('export-csv-btn').disabled = false;
 }
 
@@ -562,11 +587,11 @@ function applyCalibration() {
     let p2 = parseFloat(document.getElementById('calib-p2').value);
     let w1 = parseFloat(document.getElementById('calib-w1').value);
     let w2 = parseFloat(document.getElementById('calib-w2').value);
-    
-    if(isNaN(p1) || isNaN(p2) || isNaN(w1) || isNaN(w2)) {
+
+    if (isNaN(p1) || isNaN(p2) || isNaN(w1) || isNaN(w2)) {
         return alert("必要な値が入力されていません。2点を画像から取得してください。");
     }
-    if(p1 === p2) {
+    if (p1 === p2) {
         return alert("2点が同一ピクセルになっています。");
     }
 
@@ -575,7 +600,7 @@ function applyCalibration() {
     state.calib.w1 = w1;
     state.calib.w2 = w2;
     state.calib.active = true;
-    
+
     applyCalibrationToChart();
 }
 
@@ -583,7 +608,7 @@ function resetCalibration() {
     state.calib.active = false;
     document.getElementById('calib-p1').value = '';
     document.getElementById('calib-p2').value = '';
-    
+
     if (state.lastChartData) {
         let labels = state.lastChartData.pixelOriginal.map(p => p.toString());
         spectrumChart.data.labels = labels;
@@ -593,16 +618,16 @@ function resetCalibration() {
 }
 
 function applyCalibrationToChart() {
-    if(!state.lastChartData) return;
-    
+    if (!state.lastChartData) return;
+
     let a = (state.calib.w2 - state.calib.w1) / (state.calib.p2 - state.calib.p1);
     let b = state.calib.w1 - a * state.calib.p1;
-    
+
     let newLabels = state.lastChartData.pixelOriginal.map(p => {
         let w = a * p + b;
         return w.toFixed(1);
     });
-    
+
     spectrumChart.data.labels = newLabels;
     spectrumChart.options.scales.x.title.text = 'Wavelength (nm)';
     spectrumChart.update();
@@ -610,22 +635,22 @@ function applyCalibrationToChart() {
 
 function exportCSV() {
     if (!state.lastChartData) return;
-    
+
     let data = state.lastChartData;
     let csv = [];
-    
+
     let xHeaders = state.calib.active ? ["Wavelength_nm"] : ["Pixel"];
-    
+
     if (data.type === 'intensity') {
         csv.push([...xHeaders, "Intensity"].join(','));
-        for(let i=0; i<data.pixelOriginal.length; i++) {
+        for (let i = 0; i < data.pixelOriginal.length; i++) {
             let x = spectrumChart.data.labels[i];
             let y = data.samProfile[i];
             csv.push(`${x},${y}`);
         }
     } else {
         csv.push([...xHeaders, "Ref_Intensity", "Sam_Intensity", "Absorbance"].join(','));
-        for(let i=0; i<data.absProfile.length; i++) {
+        for (let i = 0; i < data.absProfile.length; i++) {
             let x = spectrumChart.data.labels[i];
             let refI = data.refProfile[i];
             let samI = data.samProfile[i];
@@ -633,7 +658,7 @@ function exportCSV() {
             csv.push(`${x},${refI},${samI},${absNum}`);
         }
     }
-    
+
     const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
