@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンライン分光光度計 - Online Spectrophotometer</title>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- OpenCV.js -->
+    <script src="https://docs.opencv.org/4.8.0/opencv.js" async></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>Spectrum Analyzer</h1>
+            <div class="theme-toggle">
+                <button id="theme-btn" aria-label="テーマ切り替え">🌙</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="controls-panel">
+            <section class="mode-selection card">
+                <h2>解析モード</h2>
+                <select id="mode-select">
+                    <option value="single">モード1: 単一スペクトル解析（強度）</option>
+                    <option value="same-image">モード2: 同一画像内 Ref/Sam 解析（吸光度）</option>
+                    <option value="diff-image">モード3: 別画像間 Ref/Sam 解析（吸光度）</option>
+                </select>
+            </section>
+
+            <section class="upload-section card">
+                <h2>画像アップロード</h2>
+                <div id="drop-zone-primary" class="drop-zone">
+                    <p id="primary-prompt">ここに画像をドラッグ＆ドロップ、またはクリックして選択</p>
+                    <input type="file" id="file-input-primary" accept="image/jpeg, image/png" hidden>
+                </div>
+                <div id="drop-zone-secondary" class="drop-zone hidden">
+                    <p>Sample画像をドラッグ＆ドロップ、またはクリックして選択</p>
+                    <input type="file" id="file-input-secondary" accept="image/jpeg, image/png" hidden>
+                </div>
+            </section>
+
+            <section class="calibration-section card">
+                <h2>キャリブレーション (Pixel → nm)</h2>
+                <div class="calib-inputs">
+                    <div class="calib-point">
+                        <label>点1 (Pixel): <input type="number" id="calib-p1" step="0.1" readonly></label>
+                        <label>波長 (nm): <input type="number" id="calib-w1" value="435.8"></label>
+                        <button class="pick-btn" data-target="1">画像から取得</button>
+                    </div>
+                    <div class="calib-point">
+                        <label>点2 (Pixel): <input type="number" id="calib-p2" step="0.1" readonly></label>
+                        <label>波長 (nm): <input type="number" id="calib-w2" value="546.1"></label>
+                        <button class="pick-btn" data-target="2">画像から取得</button>
+                    </div>
+                </div>
+                <button id="apply-calib-btn" class="primary-btn">校正適用 / 更新</button>
+                <button id="reset-calib-btn" class="secondary-btn">校正リセット</button>
+            </section>
+        </div>
+
+        <div class="preview-panel">
+            <section class="canvas-section card">
+                <h2>画像プレビュー & 範囲選択</h2>
+                <p class="hint">ポイントをドラッグして解析範囲（矩形・斜め）を指定してください</p>
+                <div class="canvas-container" id="canvas-wrapper-primary">
+                    <canvas id="preview-canvas-primary"></canvas>
+                </div>
+                <div class="canvas-container hidden" id="canvas-wrapper-secondary">
+                    <canvas id="preview-canvas-secondary"></canvas>
+                </div>
+                <button id="extract-btn" class="primary-btn" disabled>スペクトル抽出</button>
+            </section>
+        </div>
+
+        <div class="result-panel">
+            <section class="chart-section card">
+                <h2>解析結果</h2>
+                <div class="chart-container">
+                    <canvas id="spectrum-chart"></canvas>
+                </div>
+                <div class="export-actions">
+                    <button id="export-csv-btn" class="primary-btn" disabled>CSVダウンロード</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Overlay loading -->
+    <div id="loading-overlay" class="overlay">
+        <div class="spinner"></div>
+        <p>OpenCV.js 読み込み中...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
