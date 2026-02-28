@@ -241,11 +241,12 @@ function handleFile(file, targetId) {
 
                 let spanX, spanY;
                 if (state.direction === 'horizontal') {
-                    spanX = Math.min(400, w * 0.4);
-                    spanY = Math.min(100, h * 0.1);
+                    // Make it relative to image size so it's not tiny on 12MP smartphone photos
+                    spanX = w * 0.3;
+                    spanY = h * 0.05;
                 } else {
-                    spanX = Math.min(100, w * 0.1);
-                    spanY = Math.min(400, h * 0.4);
+                    spanX = w * 0.05;
+                    spanY = h * 0.3;
                 }
 
                 // Re-center poly if first time loaded
@@ -343,10 +344,13 @@ function getRotHandle(poly) {
     let dx = topCenter.x - center.x;
     let dy = topCenter.y - center.y;
     let len = Math.hypot(dx, dy) || 1;
-    // Extract handle 40px away from the top edge
+    // Extract handle offset dynamically relative to poly size to maintain accessibility on huge images
+    let offset = len * 0.3;
+    if (offset < 40) offset = 40;
+
     return {
-        x: topCenter.x + (dx / len) * 40,
-        y: topCenter.y + (dy / len) * 40
+        x: topCenter.x + (dx / len) * offset,
+        y: topCenter.y + (dy / len) * offset
     };
 }
 
@@ -390,8 +394,16 @@ function setupCanvasEvents(canvas, targetId) {
             clientY = e.touches[0].clientY;
         }
 
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
         const m = getMousePos({ clientX, clientY });
         activePolys = getRoisForCurrentMode(targetId);
+
+        // Effective hit radius on screen (in pixels). To get 30px screen radius, we multiply by scale factor.
+        const hitRadiusX = 30 * scaleX;
+        const hitRadiusY = 30 * scaleY;
+        const hitRadius = Math.max(hitRadiusX, hitRadiusY);
 
         for (let ap of activePolys) {
             let poly = ap.points;
@@ -399,7 +411,7 @@ function setupCanvasEvents(canvas, targetId) {
             // Check Rotation Handle first (if in rect mode)
             if (state.shapeMode === 'rect') {
                 let rotPt = getRotHandle(poly);
-                if (dist(m, rotPt) < 25) {
+                if (dist(m, rotPt) < hitRadius) {
                     state.dragState = { active: targetId, polyKey: ap.key, pointIndex: 'rot', startX: m.x, startY: m.y };
                     return;
                 }
@@ -407,7 +419,7 @@ function setupCanvasEvents(canvas, targetId) {
 
             // Check points next
             for (let i = 0; i < poly.length; i++) {
-                if (dist(m, poly[i]) < 25) { // increased hit radius heavily for touch
+                if (dist(m, poly[i]) < hitRadius) {
                     state.dragState = { active: targetId, polyKey: ap.key, pointIndex: i, startX: m.x, startY: m.y };
                     return;
                 }
@@ -558,17 +570,24 @@ function drawCanvas(targetId) { // 'primary' or 'secondary'
         ctx.fillText(ap.label, poly[0].x, poly[0].y - 10);
 
         // Draw Handles
+        // We scale visual drawing size down / up to look consistent on screen
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        let visualRadius = 15 * scaleX;
+        if (visualRadius > 150) visualRadius = 150; // clamp
+        if (visualRadius < 10) visualRadius = 10;
+
         for (let pt of poly) {
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2); // Increased visual size of the handles
+            ctx.arc(pt.x, pt.y, visualRadius, 0, Math.PI * 2);
             ctx.fillStyle = 'white';
             ctx.fill();
             ctx.strokeStyle = ap.color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3 * (scaleX > 1 ? scaleX * 0.5 : 1);
             ctx.stroke();
-            // Add an inner dot for precision feel
+
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, visualRadius / 4, 0, Math.PI * 2);
             ctx.fillStyle = ap.color;
             ctx.fill();
         }
@@ -583,23 +602,23 @@ function drawCanvas(targetId) { // 'primary' or 'secondary'
             ctx.moveTo(topCenter.x, topCenter.y);
             ctx.lineTo(rotPt.x, rotPt.y);
             ctx.strokeStyle = ap.color;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2 * (scaleX > 1 ? scaleX * 0.5 : 1);
             ctx.stroke();
 
             // Draw Rotation Circle
             ctx.beginPath();
-            ctx.arc(rotPt.x, rotPt.y, 12, 0, Math.PI * 2);
+            ctx.arc(rotPt.x, rotPt.y, visualRadius, 0, Math.PI * 2);
             ctx.fillStyle = ap.color;
             ctx.fill();
             ctx.strokeStyle = 'white';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 3 * (scaleX > 1 ? scaleX * 0.5 : 1);
             ctx.stroke();
 
             // Add rotate icon hint (circle arrow approximation)
             ctx.beginPath();
-            ctx.arc(rotPt.x, rotPt.y, 5, 0, Math.PI * 2);
+            ctx.arc(rotPt.x, rotPt.y, visualRadius / 2, 0, Math.PI * 2);
             ctx.strokeStyle = 'white';
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 1.5 * (scaleX > 1 ? scaleX * 0.5 : 1);
             ctx.stroke();
         }
     }
