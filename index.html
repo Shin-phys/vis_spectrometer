@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>オンライン分光光度計 - Online Spectrophotometer</title>
-    <!-- Chart.js -->
+    <!-- Chart.js & Zoom Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <!-- OpenCV.js (using jsdelivr to avoid docs.opencv.org CORS/COEP issues) -->
     <script src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3/dist/opencv.js" async></script>
     <!-- heic2any for HEIC support -->
@@ -42,6 +44,13 @@
                     <select id="direction-select">
                         <option value="horizontal">水平（左 ←→ 右）</option>
                         <option value="vertical">垂直（上 ←→ 下）</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="shape-select">範囲設定モード:</label>
+                    <select id="shape-select">
+                        <option value="rect">パターン1: 矩形＋回転（斜め対応・対称中心拡大）</option>
+                        <option value="free">パターン2: 自由変形 (4隅を独立して移動)</option>
                     </select>
                 </div>
             </section>
@@ -96,6 +105,11 @@
                 <h2>解析結果</h2>
                 <div class="chart-container">
                     <canvas id="spectrum-chart"></canvas>
+                </div>
+                <div class="graph-controls">
+                    <button id="reset-zoom-btn" class="secondary-btn">元のサイズに戻す</button>
+                    <button id="zoom-in-btn" class="secondary-btn" aria-label="Zoom In">拡大 (＋)</button>
+                    <button id="zoom-out-btn" class="secondary-btn" aria-label="Zoom Out">縮小 (－)</button>
                 </div>
                 <div class="export-actions">
                     <button id="export-csv-btn" class="primary-btn" disabled>CSVダウンロード</button>

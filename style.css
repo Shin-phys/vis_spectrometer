@@ -292,6 +292,19 @@ canvas {
     position: relative;
 }
 
+.graph-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.graph-controls button {
+    flex: 1;
+    min-width: 100px;
+    margin-bottom: 0;
+}
+
 .export-actions {
     display: flex;
     justify-content: flex-end;

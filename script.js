@@ -2,6 +2,7 @@ const state = {
     cvReady: false,
     mode: 'single', // 'single', 'same-image', 'diff-image'
     direction: 'horizontal', // 'horizontal', 'vertical'
+    shapeMode: 'rect', // 'rect', 'free'
     images: {
         primary: { element: new Image(), loaded: false },
         secondary: { element: new Image(), loaded: false }
@@ -118,6 +119,13 @@ function initUI() {
         });
     }
 
+    const shapeSelect = document.getElementById('shape-select');
+    if (shapeSelect) {
+        shapeSelect.addEventListener('change', (e) => {
+            state.shapeMode = e.target.value;
+        });
+    }
+
     setupDropZone('primary');
     setupDropZone('secondary');
 
@@ -128,6 +136,17 @@ function initUI() {
     const canvasSec = document.getElementById('preview-canvas-secondary');
     setupCanvasEvents(canvasPrim, 'primary');
     setupCanvasEvents(canvasSec, 'secondary');
+
+    // Zoom Controls
+    document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+        if (spectrumChart) spectrumChart.resetZoom();
+    });
+    document.getElementById('zoom-in-btn').addEventListener('click', () => {
+        if (spectrumChart) spectrumChart.zoom(1.2);
+    });
+    document.getElementById('zoom-out-btn').addEventListener('click', () => {
+        if (spectrumChart) spectrumChart.zoom(0.8);
+    });
 
     // Calibration Pick Mode
     document.querySelectorAll('.pick-btn').forEach(btn => {
@@ -304,6 +323,33 @@ function getRoisForCurrentMode(canvasId) {
     return list;
 }
 
+// Calculate the center of a polygon
+function getPolyCenter(poly) {
+    let cx = 0, cy = 0;
+    for (let p of poly) {
+        cx += p.x;
+        cy += p.y;
+    }
+    return { x: cx / poly.length, y: cy / poly.length };
+}
+
+// Get the rotation handle position
+function getRotHandle(poly) {
+    let topCenter = {
+        x: (poly[0].x + poly[1].x) / 2,
+        y: (poly[0].y + poly[1].y) / 2
+    };
+    let center = getPolyCenter(poly);
+    let dx = topCenter.x - center.x;
+    let dy = topCenter.y - center.y;
+    let len = Math.hypot(dx, dy) || 1;
+    // Extract handle 40px away from the top edge
+    return {
+        x: topCenter.x + (dx / len) * 40,
+        y: topCenter.y + (dy / len) * 40
+    };
+}
+
 function setupCanvasEvents(canvas, targetId) {
     let activePolys = [];
 
@@ -349,7 +395,17 @@ function setupCanvasEvents(canvas, targetId) {
 
         for (let ap of activePolys) {
             let poly = ap.points;
-            // Check points first
+
+            // Check Rotation Handle first (if in rect mode)
+            if (state.shapeMode === 'rect') {
+                let rotPt = getRotHandle(poly);
+                if (dist(m, rotPt) < 25) {
+                    state.dragState = { active: targetId, polyKey: ap.key, pointIndex: 'rot', startX: m.x, startY: m.y };
+                    return;
+                }
+            }
+
+            // Check points next
             for (let i = 0; i < poly.length; i++) {
                 if (dist(m, poly[i]) < 25) { // increased hit radius heavily for touch
                     state.dragState = { active: targetId, polyKey: ap.key, pointIndex: i, startX: m.x, startY: m.y };
@@ -384,9 +440,62 @@ function setupCanvasEvents(canvas, targetId) {
         let dx = m.x - state.dragState.startX;
         let dy = m.y - state.dragState.startY;
 
-        if (state.dragState.pointIndex >= 0) {
-            poly[state.dragState.pointIndex].x += dx;
-            poly[state.dragState.pointIndex].y += dy;
+        if (state.dragState.pointIndex === 'rot' && state.shapeMode === 'rect') {
+            // Rotate the entire rectangle around its center
+            let cx = 0, cy = 0;
+            for (let p of poly) { cx += p.x; cy += p.y; }
+            cx /= poly.length; cy /= poly.length;
+
+            let startAngle = Math.atan2(state.dragState.startY - cy, state.dragState.startX - cx);
+            let currentAngle = Math.atan2(m.y - cy, m.x - cx); // Fixed m.y - cx to m.x - cx
+            let angleDiff = currentAngle - startAngle;
+
+            for (let p of poly) {
+                let px = p.x - cx;
+                let py = p.y - cy;
+                p.x = cx + px * Math.cos(angleDiff) - py * Math.sin(angleDiff);
+                p.y = cy + px * Math.sin(angleDiff) + py * Math.cos(angleDiff);
+            }
+        } else if (state.dragState.pointIndex >= 0) {
+            if (state.shapeMode === 'free') {
+                poly[state.dragState.pointIndex].x += dx;
+                poly[state.dragState.pointIndex].y += dy;
+            } else if (state.shapeMode === 'rect') {
+                // Resize while maintaining a rigid rectangle shape
+                let idx = state.dragState.pointIndex;
+                let opp = (idx + 2) % 4;
+                let adj1 = (idx + 1) % 4;
+                let adj2 = (idx + 3) % 4;
+
+                let fixed_x = poly[opp].x;
+                let fixed_y = poly[opp].y;
+                let moved_x = poly[idx].x + dx;
+                let moved_y = poly[idx].y + dy;
+
+                let diag_dx = moved_x - fixed_x;
+                let diag_dy = moved_y - fixed_y;
+
+                let old_v1x = poly[adj1].x - fixed_x;
+                let old_v1y = poly[adj1].y - fixed_y;
+                let old_v2x = poly[adj2].x - fixed_x;
+                let old_v2y = poly[adj2].y - fixed_y;
+
+                let len1 = Math.hypot(old_v1x, old_v1y) || 1;
+                let len2 = Math.hypot(old_v2x, old_v2y) || 1;
+
+                let u1x = old_v1x / len1, u1y = old_v1y / len1;
+                let u2x = old_v2x / len2, u2y = old_v2y / len2;
+
+                let proj1 = diag_dx * u1x + diag_dy * u1y;
+                let proj2 = diag_dx * u2x + diag_dy * u2y;
+
+                poly[idx].x = fixed_x + proj1 * u1x + proj2 * u2x;
+                poly[idx].y = fixed_y + proj1 * u1y + proj2 * u2y;
+                poly[adj1].x = fixed_x + proj1 * u1x;
+                poly[adj1].y = fixed_y + proj1 * u1y;
+                poly[adj2].x = fixed_x + proj2 * u2x;
+                poly[adj2].y = fixed_y + proj2 * u2y;
+            }
         } else {
             for (let p of poly) {
                 p.x += dx; p.y += dy;
@@ -463,6 +572,36 @@ function drawCanvas(targetId) { // 'primary' or 'secondary'
             ctx.fillStyle = ap.color;
             ctx.fill();
         }
+
+        // Draw Rotation Handle if rectangle mode
+        if (state.shapeMode === 'rect') {
+            let rotPt = getRotHandle(poly);
+            let topCenter = { x: (poly[0].x + poly[1].x) / 2, y: (poly[0].y + poly[1].y) / 2 };
+
+            // Draw connecting line
+            ctx.beginPath();
+            ctx.moveTo(topCenter.x, topCenter.y);
+            ctx.lineTo(rotPt.x, rotPt.y);
+            ctx.strokeStyle = ap.color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Rotation Circle
+            ctx.beginPath();
+            ctx.arc(rotPt.x, rotPt.y, 12, 0, Math.PI * 2);
+            ctx.fillStyle = ap.color;
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Add rotate icon hint (circle arrow approximation)
+            ctx.beginPath();
+            ctx.arc(rotPt.x, rotPt.y, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
     }
 }
 
@@ -514,6 +653,26 @@ function initChart() {
                 tooltip: {
                     mode: 'index',
                     intersect: false
+                },
+                zoom: {
+                    pan: {
+                        enabled: true,
+                        mode: 'xy',
+                        modifierKey: 'shift', // Shift + Drag to pan
+                    },
+                    zoom: {
+                        wheel: {
+                            enabled: false, // ホイールでの拡大縮小を無効化
+                        },
+                        pinch: {
+                            enabled: true // pinch to zoom on mobile
+                        },
+                        drag: {
+                            enabled: true, // drag to draw zoom rectangle
+                            backgroundColor: 'rgba(59, 130, 246, 0.3)'
+                        },
+                        mode: 'xy',
+                    }
                 }
             }
         }
