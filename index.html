@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- OpenCV.js (using jsdelivr to avoid docs.opencv.org CORS/COEP issues) -->
     <script src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3/dist/opencv.js" async></script>
+    <!-- heic2any for HEIC support -->
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -38,11 +40,11 @@
                 <h2>画像アップロード</h2>
                 <div id="drop-zone-primary" class="drop-zone">
                     <p id="primary-prompt">ここに画像をドラッグ＆ドロップ、またはクリックして選択</p>
-                    <input type="file" id="file-input-primary" accept="image/jpeg, image/png" hidden>
+                    <input type="file" id="file-input-primary" accept="image/jpeg, image/png, .heic, .heif" hidden>
                 </div>
                 <div id="drop-zone-secondary" class="drop-zone hidden">
                     <p>Sample画像をドラッグ＆ドロップ、またはクリックして選択</p>
-                    <input type="file" id="file-input-secondary" accept="image/jpeg, image/png" hidden>
+                    <input type="file" id="file-input-secondary" accept="image/jpeg, image/png, .heic, .heif" hidden>
                 </div>
             </section>
 

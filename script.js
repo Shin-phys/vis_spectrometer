@@ -175,40 +175,72 @@ function setupDropZone(targetId) { // 'primary' or 'secondary'
 }
 
 function handleFile(file, targetId) {
-    if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const img = state.images[targetId];
-        img.element.onload = () => {
-            img.loaded = true;
+    if (!file) return;
 
-            // Adjust polygon sizes based on image size roughly
-            const w = img.element.width;
-            const h = img.element.height;
-            const cx = w / 2;
-            const cy = h / 2;
-            const spanX = Math.min(400, w * 0.4);
-            const spanY = Math.min(100, h * 0.1);
+    const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+    if (!file.type.startsWith('image/') && !isHeic) return;
 
-            // Re-center poly if first time loaded
-            if (targetId === 'primary') {
-                if (state.mode === 'single') {
-                    setPoly('single', 'sam', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
-                } else {
-                    setPoly('same', 'ref', cx - spanX, cy - spanY * 2 - 20, cx + spanX, cy - 20);
-                    setPoly('same', 'sam', cx - spanX, cy + 20, cx + spanX, cy + spanY * 2 + 20);
+    const processBlob = (blob) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = state.images[targetId];
+            img.element.onload = () => {
+                img.loaded = true;
+
+                // Adjust polygon sizes based on image size roughly
+                const w = img.element.width;
+                const h = img.element.height;
+                const cx = w / 2;
+                const cy = h / 2;
+                const spanX = Math.min(400, w * 0.4);
+                const spanY = Math.min(100, h * 0.1);
+
+                // Re-center poly if first time loaded
+                if (targetId === 'primary') {
+                    if (state.mode === 'single') {
+                        setPoly('single', 'sam', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
+                    } else {
+                        setPoly('same', 'ref', cx - spanX, cy - spanY * 2 - 20, cx + spanX, cy - 20);
+                        setPoly('same', 'sam', cx - spanX, cy + 20, cx + spanX, cy + spanY * 2 + 20);
+                    }
+                    setPoly('diff', 'ref', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
+                } else if (targetId === 'secondary') {
+                    setPoly('diff', 'sam', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
                 }
-                setPoly('diff', 'ref', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
-            } else if (targetId === 'secondary') {
-                setPoly('diff', 'sam', cx - spanX, cy - spanY, cx + spanX, cy + spanY);
-            }
 
-            document.getElementById('extract-btn').disabled = false;
-            redrawAll();
+                document.getElementById('extract-btn').disabled = false;
+                redrawAll();
+            };
+            img.element.src = e.target.result;
         };
-        img.element.src = e.target.result;
+        reader.readAsDataURL(blob);
     };
-    reader.readAsDataURL(file);
+
+    if (isHeic) {
+        // Overlay HEIC loading
+        const overlay = document.getElementById('loading-overlay');
+        const overlayText = overlay.querySelector('p');
+        overlayText.textContent = 'HEIC画像を変換中...';
+        overlay.classList.remove('hidden');
+
+        heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.8
+        })
+            .then((conversionResult) => {
+                let blob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult;
+                overlay.classList.add('hidden');
+                processBlob(blob);
+            })
+            .catch((e) => {
+                console.error(e);
+                alert('HEIC画像の変換に失敗しました。');
+                overlay.classList.add('hidden');
+            });
+    } else {
+        processBlob(file);
+    }
 }
 
 function setPoly(mode, key, x1, y1, x2, y2) {
@@ -267,6 +299,10 @@ function setupCanvasEvents(canvas, targetId) {
     const handleDown = (e) => {
         if (!state.images[targetId].loaded) return;
 
+        if (e.type === 'touchstart') {
+            e.preventDefault();
+        }
+
         let clientX = e.clientX;
         let clientY = e.clientY;
         if (e.touches && e.touches.length > 0) {
@@ -281,7 +317,7 @@ function setupCanvasEvents(canvas, targetId) {
             let poly = ap.points;
             // Check points first
             for (let i = 0; i < poly.length; i++) {
-                if (dist(m, poly[i]) < 15) { // increased hit radius for touch
+                if (dist(m, poly[i]) < 25) { // increased hit radius heavily for touch
                     state.dragState = { active: targetId, polyKey: ap.key, pointIndex: i, startX: m.x, startY: m.y };
                     return;
                 }
