@@ -122,6 +122,17 @@ input[type="text"] {
     transition: all 0.3s;
 }
 
+.setting-group {
+    margin-bottom: 1rem;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
 .drop-zone {
     border: 2px dashed var(--primary-color);
     border-radius: var(--border-radius);

@@ -28,12 +28,22 @@
     <main>
         <div class="controls-panel">
             <section class="mode-selection card">
-                <h2>解析モード</h2>
-                <select id="mode-select">
-                    <option value="single">モード1: 単一スペクトル解析（強度）</option>
-                    <option value="same-image">モード2: 同一画像内 Ref/Sam 解析（吸光度）</option>
-                    <option value="diff-image">モード3: 別画像間 Ref/Sam 解析（吸光度）</option>
-                </select>
+                <h2>解析設定</h2>
+                <div class="setting-group">
+                    <label for="mode-select">解析モード:</label>
+                    <select id="mode-select">
+                        <option value="single">モード1: 単一スペクトル解析（強度）</option>
+                        <option value="same-image">モード2: 同一画像内 Ref/Sam 解析（吸光度）</option>
+                        <option value="diff-image">モード3: 別画像間 Ref/Sam 解析（吸光度）</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="direction-select">波長の方向 (スリット方向):</label>
+                    <select id="direction-select">
+                        <option value="horizontal">水平（左 ←→ 右）</option>
+                        <option value="vertical">垂直（上 ←→ 下）</option>
+                    </select>
+                </div>
             </section>
 
             <section class="upload-section card">

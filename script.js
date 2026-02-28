@@ -1,7 +1,7 @@
-// Global State
 const state = {
     cvReady: false,
     mode: 'single', // 'single', 'same-image', 'diff-image'
+    direction: 'horizontal', // 'horizontal', 'vertical'
     images: {
         primary: { element: new Image(), loaded: false },
         secondary: { element: new Image(), loaded: false }
@@ -90,6 +90,33 @@ function initUI() {
         updateVisibility();
         redrawAll();
     });
+
+    const directionSelect = document.getElementById('direction-select');
+    if (directionSelect) {
+        directionSelect.addEventListener('change', (e) => {
+            let oldDirection = state.direction;
+            state.direction = e.target.value;
+
+            // Auto rotate polys to fit new direction if changed
+            if (oldDirection !== state.direction) {
+                for (let mode in state.polys) {
+                    for (let key in state.polys[mode]) {
+                        let poly = state.polys[mode][key];
+                        // rotate 90 deg around center
+                        let cx = (poly[0].x + poly[2].x) / 2;
+                        let cy = (poly[0].y + poly[2].y) / 2;
+                        for (let pt of poly) {
+                            let dx = pt.x - cx;
+                            let dy = pt.y - cy;
+                            pt.x = cx - dy;
+                            pt.y = cy + dx;
+                        }
+                    }
+                }
+            }
+            redrawAll();
+        });
+    }
 
     setupDropZone('primary');
     setupDropZone('secondary');
@@ -192,8 +219,15 @@ function handleFile(file, targetId) {
                 const h = img.element.height;
                 const cx = w / 2;
                 const cy = h / 2;
-                const spanX = Math.min(400, w * 0.4);
-                const spanY = Math.min(100, h * 0.1);
+
+                let spanX, spanY;
+                if (state.direction === 'horizontal') {
+                    spanX = Math.min(400, w * 0.4);
+                    spanY = Math.min(100, h * 0.1);
+                } else {
+                    spanX = Math.min(100, w * 0.1);
+                    spanY = Math.min(400, h * 0.4);
+                }
 
                 // Re-center poly if first time loaded
                 if (targetId === 'primary') {
@@ -417,12 +451,17 @@ function drawCanvas(targetId) { // 'primary' or 'secondary'
         // Draw Handles
         for (let pt of poly) {
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+            ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2); // Increased visual size of the handles
             ctx.fillStyle = 'white';
             ctx.fill();
             ctx.strokeStyle = ap.color;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.stroke();
+            // Add an inner dot for precision feel
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = ap.color;
+            ctx.fill();
         }
     }
 }
@@ -444,7 +483,7 @@ function initChart() {
             maintainAspectRatio: false,
             animation: false,
             elements: {
-                point: { radius: 0, hitRadius: 10, hoverRadius: 5 }
+                point: { radius: 1, hitRadius: 30, hoverRadius: 5 } // Increased hit radius for mobile touch selection
             },
             interaction: { mode: 'index', intersect: false },
             scales: {
@@ -457,7 +496,7 @@ function initChart() {
             },
             onClick: (e) => {
                 if (state.pickMode) {
-                    const elements = spectrumChart.getElementsAtEventForMode(e, 'index', { intersect: false }, false);
+                    const elements = spectrumChart.getElementsAtEventForMode(e, 'nearest', { intersect: false }, false);
                     if (elements.length > 0) {
                         const index = elements[0].index;
                         const pixel = state.lastChartData.pixelOriginal[index];
@@ -467,7 +506,14 @@ function initChart() {
                         // Disable pick mode
                         document.querySelector(`.pick-btn[data-target="${state.pickMode}"]`).classList.remove('active');
                         state.pickMode = null;
+                        spectrumChart.update();
                     }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
                 }
             }
         }
@@ -526,13 +572,26 @@ function extractProfile(imgElement, poly) {
     let gray = new cv.Mat();
     cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
 
-    let profile = new Float32Array(maxWidth);
-    for (let x = 0; x < maxWidth; x++) {
-        let sum = 0;
-        for (let y = 0; y < maxHeight; y++) {
-            sum += gray.ucharPtr(y, x)[0];
+    let profile;
+    if (state.direction === 'horizontal') {
+        profile = new Float32Array(maxWidth);
+        for (let x = 0; x < maxWidth; x++) {
+            let sum = 0;
+            for (let y = 0; y < maxHeight; y++) {
+                sum += gray.ucharPtr(y, x)[0];
+            }
+            profile[x] = sum / maxHeight;
         }
-        profile[x] = sum / maxHeight;
+    } else {
+        // Vertical processing: wave runs top to bottom
+        profile = new Float32Array(maxHeight);
+        for (let y = 0; y < maxHeight; y++) {
+            let sum = 0;
+            for (let x = 0; x < maxWidth; x++) {
+                sum += gray.ucharPtr(y, x)[0];
+            }
+            profile[y] = sum / maxWidth;
+        }
     }
 
     src.delete(); dstPoints.delete(); srcPoints.delete(); M.delete(); dst.delete(); gray.delete();
